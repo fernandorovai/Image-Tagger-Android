@@ -10,6 +10,8 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.RelativeLayout;
+
 import java.util.ArrayList;
 import static android.content.ContentValues.TAG;
 import static java.lang.Math.abs;
@@ -86,6 +88,7 @@ public class BoxView extends View {
     int mMinimalHeight=100;
     int mSelectedBox=-1;
     int mSelectedCorner=-1;
+    Point mLastTouch = new Point();
 
     Paint mPaint = new Paint();
     Paint mPaintTemp = new Paint();
@@ -108,21 +111,16 @@ public class BoxView extends View {
         mPaintSelected.setStrokeWidth(5);
         mPaintSelected.setPathEffect(new DashPathEffect(new float[] { 5, 2, 2 }, 0));
         mPaintSelected.setStyle(Paint.Style.STROKE);
-
         setFocusable(true);
+
     }
+
 
     @Override
     protected void onDraw(Canvas canvas) {
         Integer test = (this.mStartX - this.mEndX);
-        Log.d(TAG, "onDraw: " + test.toString());
-        if (abs(this.mStartX - this.mEndX) > mMinimalWidth && abs(this.mStartY - this.mEndY) > mMinimalHeight) {
-            canvas.drawRect(this.mStartX,
-                            this.mStartY,
-                            this.mEndX,
-                            this.mEndY,
-                            mPaintTemp);
-        }
+//        Log.d(TAG, "onDraw: " + test.toString());
+
         for(int idx=0; idx<mRectCoords.size(); idx++) {
             canvas.drawRect(mRectCoords.get(idx).startX,
                             mRectCoords.get(idx).startY,
@@ -130,6 +128,16 @@ public class BoxView extends View {
                             mRectCoords.get(idx).endY,
                             mPaint);
         }
+
+        if (abs(this.mStartX - this.mEndX) > mMinimalWidth && abs(this.mStartY - this.mEndY) > mMinimalHeight && mSelectedBox == -1) {
+            canvas.drawRect(this.mStartX,
+                    this.mStartY,
+                    this.mEndX,
+                    this.mEndY,
+                    mPaintTemp);
+        }
+
+
         if(mSelectedBox != -1){
             canvas.drawRect(mRectCoords.get(mSelectedBox).startX,
                     mRectCoords.get(mSelectedBox).startY,
@@ -141,6 +149,7 @@ public class BoxView extends View {
                 canvas.drawCircle(corners.get(cornerIdx).cornerPt.x, corners.get(cornerIdx).cornerPt.y, corners.get(cornerIdx).radius, mPaintCorner);
             }
         }
+
     }
 
     public int getSelectedCorner(Rect selectedRect, Point touchedPt){
@@ -155,7 +164,7 @@ public class BoxView extends View {
                 cornerId = idx;
             }
         }
-        Log.d(TAG, "onTouchEvent: corner: " + Integer.toString(cornerId));
+//        Log.d(TAG, "onTouchEvent: corner: " + Integer.toString(cornerId));
 
         return cornerId;
     }
@@ -184,13 +193,10 @@ public class BoxView extends View {
         // Check if touched pos is out of the box
         if(boxId != -1){
             if(mEndX > mRectCoords.get(boxId).endX || mEndY > mRectCoords.get(boxId).endY ||
-                    mStartX < mRectCoords.get(boxId).startX || mStartY < mRectCoords.get(boxId).startY){
+                    mEndX < mRectCoords.get(boxId).startX || mEndY < mRectCoords.get(boxId).startY){
                 boxId = -1;
             }
         }
-
-        Log.d(TAG, "onTouchEvent: MinDistance2Center" + Double.toString(dist));
-        Log.d(TAG, "onTouchEvent: MinDistance2CenterID" + Integer.toString(boxId));
         return boxId;
     }
 
@@ -201,26 +207,43 @@ public class BoxView extends View {
                 this.mStartX = (int) event.getX();
                 this.mStartY = (int) event.getY();
 
+                this.mLastTouch.x = (int) event.getX();
+                this.mLastTouch.y = (int) event.getY();
                 // User has already selected a box and may want to change its size
                 if(mSelectedBox != -1){
                     mSelectedCorner = getSelectedCorner(mRectCoords.get(mSelectedBox), new Point(this.mStartX, this.mStartY));
-                    Log.d(TAG, "onTouchEvent: Resize box: " + Integer.toString(mSelectedBox));
-                    
                 }
                 break;
 
             case MotionEvent.ACTION_MOVE:
                 this.mEndX = (int) event.getX();
                 this.mEndY = (int) event.getY();
+
+                if(mSelectedBox != -1){
+                    int xDelta = (int) event.getX() - mLastTouch.x;
+                    int yDelta = (int) event.getY() - mLastTouch.y;
+
+                    mRectCoords.get(mSelectedBox).startX+= xDelta;
+                    mRectCoords.get(mSelectedBox).endX+= xDelta;
+                    mRectCoords.get(mSelectedBox).startY+= yDelta;
+                    mRectCoords.get(mSelectedBox).endY+= yDelta;
+
+                    mRectCoords.get(mSelectedBox).centerX = mRectCoords.get(mSelectedBox).centerX += xDelta;
+                    mRectCoords.get(mSelectedBox).centerY = mRectCoords.get(mSelectedBox).centerY += yDelta;
 //
-//                if(mSelectedBox != -1){
-//                    mRectCoords.get(mSelectedBox).startX = this.mStartX;
-//                    mRectCoords.get(mSelectedBox).startY = this.mStartY;
-//                    mRectCoords.get(mSelectedBox).endX = this.mEndX;
-//                    mRectCoords.get(mSelectedBox).endY = this.mEndY;
-//                }
+                    mRectCoords.get(mSelectedBox).corners.get(0).cornerPt.x+=xDelta;
+                    mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.x+=xDelta;
+                    mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.x+=xDelta;
+                    mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.x+=xDelta;
 
+                    mRectCoords.get(mSelectedBox).corners.get(0).cornerPt.y+=yDelta;
+                    mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.y+=yDelta;
+                    mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.y+=yDelta;
+                    mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.y+=yDelta;
 
+                    mLastTouch.x = (int) event.getX();
+                    mLastTouch.y = (int) event.getY();
+                }
                 invalidate();
                 break;
 
@@ -228,11 +251,13 @@ public class BoxView extends View {
                 this.mEndX = (int) event.getX();
                 this.mEndY = (int) event.getY();
 
-                // If the rectangle is big enough, register as a new box
-                if(abs(this.mStartX - this.mEndX) > mMinimalWidth && abs(this.mStartY - this.mEndY) > mMinimalHeight){
-                    mRectCoords.add(new Rect(this.mStartX, this.mStartY, this.mEndX, this.mEndY, mRectCoords.size()+1));
-                    invalidate();
-                    break;
+                if(mSelectedBox == -1) {
+                    // If the rectangle is big enough, register as a new box
+                    if (abs(this.mStartX - this.mEndX) > mMinimalWidth && abs(this.mStartY - this.mEndY) > mMinimalHeight) {
+                        mRectCoords.add(new Rect(this.mStartX, this.mStartY, this.mEndX, this.mEndY, mRectCoords.size() + 1));
+                        invalidate();
+                        break;
+                    }
                 }
 
                 // If the square is too small, user may be selecting a box
@@ -247,14 +272,6 @@ public class BoxView extends View {
         }
         return true;
 
-//        if (mRectCoords.size() == 4){
-//            mRectCoords.clear();
-//        }
-//        // touched = true;
-//        // getting the touched x and y position
-//        mRectCoords.add(new PointF(event.getX(), event.getY()));
-//        invalidate();
-//        return true;
     }
 }
 
