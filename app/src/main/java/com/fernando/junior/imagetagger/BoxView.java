@@ -10,9 +10,9 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.RelativeLayout;
 
 import java.util.ArrayList;
+
 import static android.content.ContentValues.TAG;
 import static java.lang.Math.abs;
 
@@ -93,7 +93,9 @@ public class BoxView extends View {
     Paint mPaint = new Paint();
     Paint mPaintTemp = new Paint();
     Paint mPaintCorner = new Paint();
-    Paint mPaintSelected = new Paint();
+    Paint mPaintSelectedBox = new Paint();
+    Paint mPaintSelectedCorner = new Paint();
+
     public BoxView(Context context, AttributeSet attrs) {
         super(context, attrs);
         mPaint.setColor(Color.BLACK);
@@ -107,12 +109,15 @@ public class BoxView extends View {
         mPaintCorner.setColor(Color.YELLOW);
         mPaintCorner.setStyle(Paint.Style.FILL);
 
-        mPaintSelected.setColor(Color.RED);
-        mPaintSelected.setStrokeWidth(5);
-        mPaintSelected.setPathEffect(new DashPathEffect(new float[] { 5, 2, 2 }, 0));
-        mPaintSelected.setStyle(Paint.Style.STROKE);
-        setFocusable(true);
+        mPaintSelectedBox.setColor(Color.RED);
+        mPaintSelectedBox.setStrokeWidth(5);
+        mPaintSelectedBox.setPathEffect(new DashPathEffect(new float[] { 5, 2, 2 }, 0));
+        mPaintSelectedBox.setStyle(Paint.Style.STROKE);
 
+        mPaintSelectedCorner.setColor(Color.RED);
+        mPaintSelectedCorner.setStyle(Paint.Style.FILL);
+
+        setFocusable(true);
     }
 
 
@@ -143,13 +148,18 @@ public class BoxView extends View {
                     mRectCoords.get(mSelectedBox).startY,
                     mRectCoords.get(mSelectedBox).endX,
                     mRectCoords.get(mSelectedBox).endY,
-                    mPaintSelected);
+                    mPaintSelectedBox);
             ArrayList<Corner> corners = mRectCoords.get(mSelectedBox).GetCorners();
             for(int cornerIdx=0; cornerIdx<corners.size(); cornerIdx++){
                 canvas.drawCircle(corners.get(cornerIdx).cornerPt.x, corners.get(cornerIdx).cornerPt.y, corners.get(cornerIdx).radius, mPaintCorner);
             }
-        }
 
+            if(mSelectedCorner != -1){
+                Log.d(TAG, "onDraw: Draw selectedCorner: " + Integer.toString(mSelectedCorner));
+                canvas.drawCircle(corners.get(mSelectedCorner).cornerPt.x, corners.get(mSelectedCorner).cornerPt.y, corners.get(mSelectedCorner).radius, mPaintSelectedCorner);
+
+            }
+        }
     }
 
     public int getSelectedCorner(Rect selectedRect, Point touchedPt){
@@ -173,6 +183,12 @@ public class BoxView extends View {
         double d=-1;
         double dist=-1;
         int boxId=-1;
+
+         if(mSelectedCorner != -1) {
+             Log.d(TAG, "getSelectedBox: selectedCornerHERE " + Integer.toString(mSelectedCorner));
+             return mSelectedBox;
+         }
+
         // Look for the shortest distance between box center and touched pos
         for(int idx=0; idx<mRectCoords.size(); idx++){
             dist = Math.sqrt(Math.pow(mRectCoords.get(idx).centerX - mEndX, 2) +
@@ -191,12 +207,14 @@ public class BoxView extends View {
         }
 
         // Check if touched pos is out of the box
-        if(boxId != -1){
+        if(boxId != -1) {
             if(mEndX > mRectCoords.get(boxId).endX || mEndY > mRectCoords.get(boxId).endY ||
-                    mEndX < mRectCoords.get(boxId).startX || mEndY < mRectCoords.get(boxId).startY){
+                    mEndX < mRectCoords.get(boxId).startX || mEndY < mRectCoords.get(boxId).startY) {
                 boxId = -1;
             }
         }
+
+
         return boxId;
     }
 
@@ -212,12 +230,67 @@ public class BoxView extends View {
                 // User has already selected a box and may want to change its size
                 if(mSelectedBox != -1){
                     mSelectedCorner = getSelectedCorner(mRectCoords.get(mSelectedBox), new Point(this.mStartX, this.mStartY));
+                    Log.d(TAG, "onTouchEvent: Selected Corner: " + Integer.toString(mSelectedCorner));
                 }
+                invalidate();
                 break;
 
             case MotionEvent.ACTION_MOVE:
                 this.mEndX = (int) event.getX();
                 this.mEndY = (int) event.getY();
+
+
+                // Resize box according to each corner
+                // This code need to be refactored to avoid many expressions
+                if(mSelectedCorner != -1){
+                    if(mSelectedCorner == 0) {
+                        mRectCoords.get(mSelectedBox).corners.get(0).cornerPt.x = this.mEndX;
+                        mRectCoords.get(mSelectedBox).corners.get(0).cornerPt.y = this.mEndY;
+                        mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.y = this.mEndY;
+                        mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.x = this.mEndX;
+
+                        mRectCoords.get(mSelectedBox).startX = this.mEndX;
+                        mRectCoords.get(mSelectedBox).startY = this.mEndY;
+
+                    }else if(mSelectedCorner == 3){
+                        mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.x = this.mEndX;
+                        mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.y = this.mEndY;
+                        mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.x = this.mEndX;
+                        mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.y = this.mEndY;
+
+                        mRectCoords.get(mSelectedBox).endX = this.mEndX;
+                        mRectCoords.get(mSelectedBox).endY = this.mEndY;
+
+
+                    }else if(mSelectedCorner == 1){
+                        mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.x = this.mEndX;
+                        mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.y = this.mEndY;
+                        mRectCoords.get(mSelectedBox).corners.get(0).cornerPt.y = this.mEndY;
+                        mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.x = this.mEndX;
+
+                        mRectCoords.get(mSelectedBox).endX = this.mEndX;
+                        mRectCoords.get(mSelectedBox).startY = this.mEndY;
+
+                    }else{
+                        mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.x = this.mEndX;
+                        mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.y = this.mEndY;
+                        mRectCoords.get(mSelectedBox).corners.get(0).cornerPt.x = this.mEndX;
+                        mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.y = this.mEndY;
+
+                        mRectCoords.get(mSelectedBox).startX = this.mEndX;
+                        mRectCoords.get(mSelectedBox).endY = this.mEndY;
+
+
+                    }
+
+                    mRectCoords.get(mSelectedBox).width = mRectCoords.get(mSelectedBox).endX - mRectCoords.get(mSelectedBox).startX;
+                    mRectCoords.get(mSelectedBox).height = mRectCoords.get(mSelectedBox).endY - mRectCoords.get(mSelectedBox).startY;
+                    mRectCoords.get(mSelectedBox).centerX = mRectCoords.get(mSelectedBox).startX + mRectCoords.get(mSelectedBox).width/2.f;
+                    mRectCoords.get(mSelectedBox).centerY = mRectCoords.get(mSelectedBox).startY + mRectCoords.get(mSelectedBox).height/2.f;
+                    invalidate();
+                    break;
+                }
+
 
                 if(mSelectedBox != -1){
                     int xDelta = (int) event.getX() - mLastTouch.x;
@@ -240,10 +313,10 @@ public class BoxView extends View {
                     mRectCoords.get(mSelectedBox).corners.get(1).cornerPt.y+=yDelta;
                     mRectCoords.get(mSelectedBox).corners.get(2).cornerPt.y+=yDelta;
                     mRectCoords.get(mSelectedBox).corners.get(3).cornerPt.y+=yDelta;
-
-                    mLastTouch.x = (int) event.getX();
-                    mLastTouch.y = (int) event.getY();
                 }
+
+                mLastTouch.x = (int) event.getX();
+                mLastTouch.y = (int) event.getY();
                 invalidate();
                 break;
 
