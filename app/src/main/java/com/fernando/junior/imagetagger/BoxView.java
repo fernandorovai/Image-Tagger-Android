@@ -11,6 +11,7 @@ import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 
+import java.nio.channels.NonReadableChannelException;
 import java.util.ArrayList;
 
 import static android.content.ContentValues.TAG;
@@ -123,25 +124,21 @@ public class BoxView extends View {
 
     @Override
     protected void onDraw(Canvas canvas) {
-        Integer test = (this.mStartX - this.mEndX);
-//        Log.d(TAG, "onDraw: " + test.toString());
-
-        for(int idx=0; idx<mRectCoords.size(); idx++) {
-            canvas.drawRect(mRectCoords.get(idx).startX,
-                            mRectCoords.get(idx).startY,
-                            mRectCoords.get(idx).endX,
-                            mRectCoords.get(idx).endY,
-                            mPaint);
+        for (int idx = 0; idx < mRectCoords.size(); idx++) {
+                canvas.drawRect(mRectCoords.get(idx).startX,
+                        mRectCoords.get(idx).startY,
+                        mRectCoords.get(idx).endX,
+                        mRectCoords.get(idx).endY,
+                        mPaint);
         }
 
-        if (abs(this.mStartX - this.mEndX) > mMinimalWidth && abs(this.mStartY - this.mEndY) > mMinimalHeight && mSelectedBox == -1) {
-            canvas.drawRect(this.mStartX,
-                    this.mStartY,
-                    this.mEndX,
-                    this.mEndY,
-                    mPaintTemp);
+        if (this.mStartY != -1 && this.mStartX != -1 && this.mEndX != -1 && this.mEndY != -1 && mSelectedBox == -1) {
+                canvas.drawRect(this.mStartX,
+                        this.mStartY,
+                        this.mEndX,
+                        this.mEndY,
+                        mPaintTemp);
         }
-
 
         if(mSelectedBox != -1){
             canvas.drawRect(mRectCoords.get(mSelectedBox).startX,
@@ -220,6 +217,15 @@ public class BoxView extends View {
 
     @Override
     public boolean onTouchEvent (MotionEvent event) {
+        // get pointer index from the event object
+        int pointerIndex = event.getActionIndex();
+
+        // get pointer ID
+        int pointerId = event.getPointerId(pointerIndex);
+        Log.d(TAG, "onTouchEvent: pointerID " + Integer.toString(pointerId));
+        if(pointerId != 0)
+            return true;
+
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
                 this.mStartX = (int) event.getX();
@@ -282,7 +288,6 @@ public class BoxView extends View {
 
 
                     }
-
                     mRectCoords.get(mSelectedBox).width = mRectCoords.get(mSelectedBox).endX - mRectCoords.get(mSelectedBox).startX;
                     mRectCoords.get(mSelectedBox).height = mRectCoords.get(mSelectedBox).endY - mRectCoords.get(mSelectedBox).startY;
                     mRectCoords.get(mSelectedBox).centerX = mRectCoords.get(mSelectedBox).startX + mRectCoords.get(mSelectedBox).width/2.f;
@@ -335,6 +340,11 @@ public class BoxView extends View {
 
                 // If the square is too small, user may be selecting a box
                 mSelectedBox = getSelectedBox();
+
+                this.mStartX = -1;
+                this.mEndX = -1;
+                this.mStartY = -1;
+                this.mEndY = -1;
 
                 invalidate();
                 break;
